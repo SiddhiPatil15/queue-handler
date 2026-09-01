@@ -59,7 +59,8 @@ class Counter:
         self.base_service_rate = base_service_rate
         self.phase_offset = phase_offset
         self.active = active
-        self.queue_length = random.randint(3, 8)
+        # Start at 0 for a clean production deployment instead of fake random data
+        self.queue_length = 0.0
         self.history = []  # [(sim_minute, queue_length)]
         self.observations_log = [] # Detailed observation records
         self.total_served = 0
@@ -72,14 +73,16 @@ class Counter:
         t = sim_minute + self.phase_offset
         k = 2 * math.pi / 40.0
         wave = 3.2 * math.sin(k * t) + 1.4 * math.sin(k * 2.2 * t + 0.5)
-        noise = random.uniform(-0.5, 0.5)
+        # Reduced noise for smoother, more realistic fluctuations
+        noise = random.uniform(-0.1, 0.1)
         rate = self.base_service_rate + wave + noise + global_surge
         return max(0.4, rate)
 
     def service_rate(self, sim_minute):
         if not self.active:
             return 0.0
-        return max(0.8, self.base_service_rate + random.uniform(-0.4, 0.4))
+        # Reduced noise for smoother, more realistic service rates
+        return max(0.8, self.base_service_rate + random.uniform(-0.1, 0.1))
 
     def tick(self, sim_minute, global_surge=0.0, force_wave=True):
         if not self.active:
@@ -175,9 +178,10 @@ class QueueSimulator:
 
     def _advance(self):
         for c in self.counters:
-            # If in real CV mode and counter has real observation, don't overwrite with random wave
-            is_real = self.active_mode == "real_cv" and c.last_source in ("image", "video", "camera", "manual", "computer_vision")
-            c.tick(self.sim_minute, self.global_surge, force_wave=not is_real)
+            # Completely disable artificial fake fluctuations when in Real mode.
+            # Only use the wave generator if the user explicitly switches to 'simulation' (Demo Mode).
+            is_demo = self.active_mode == "simulation"
+            c.tick(self.sim_minute, self.global_surge, force_wave=is_demo)
         self.sim_minute += 1
 
         if self.global_surge > 0:

@@ -1182,6 +1182,8 @@ body {
   white-space: nowrap;
   padding: 8px 18px;
   font-size: 13px;
+  width: auto;
+  margin-top: 0;
 }
 
 /* ══════════════════════════════════════════════════════
