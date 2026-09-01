@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Eye, Upload, Cpu, Video, CheckCircle2, AlertTriangle, AlertCircle, RefreshCw, Zap, ShieldCheck, Play, Square, Info } from 'lucide-react';
 
 export default function VisionTab({ snapshot, onSetQueueCount, onRefreshDashboard }) {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
   const [activeInputMode, setActiveInputMode] = useState('photo'); // 'photo' | 'video' | 'camera' | 'demo'
   const [selectedCounterId, setSelectedCounterId] = useState('');
   
@@ -55,7 +56,7 @@ export default function VisionTab({ snapshot, onSetQueueCount, onRefreshDashboar
     if (activeInputMode !== 'demo') return;
     const fetchCv = async () => {
       try {
-        const res = await fetch("/api/cv/state");
+        const res = await fetch(baseUrl + "/api/cv/state");
         if (res.ok) {
           const data = await res.json();
           setCvState(data);
@@ -103,7 +104,7 @@ export default function VisionTab({ snapshot, onSetQueueCount, onRefreshDashboar
         formData.append("roi", JSON.stringify({ x: 0, y: 0, width: 2000, height: 2000 }));
       }
 
-      const res = await fetch("/api/cv/analyze-image", {
+      const res = await fetch(baseUrl + "/api/cv/analyze-image", {
         method: "POST",
         body: formData
       });
@@ -158,7 +159,7 @@ export default function VisionTab({ snapshot, onSetQueueCount, onRefreshDashboar
         setVideoProgress(p => (p < 90 ? p + 10 : p));
       }, 400);
 
-      const res = await fetch("/api/cv/analyze-video", {
+      const res = await fetch(baseUrl + "/api/cv/analyze-video", {
         method: "POST",
         body: formData
       });
@@ -240,7 +241,7 @@ export default function VisionTab({ snapshot, onSetQueueCount, onRefreshDashboar
     const frameBase64 = canvas.toDataURL("image/jpeg", 0.85);
 
     try {
-      const res = await fetch("/api/cv/frame", {
+      const res = await fetch(baseUrl + "/api/cv/frame", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
