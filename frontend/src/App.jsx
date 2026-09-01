@@ -23,7 +23,8 @@ export default function App() {
 
   // Fetch wrapper
   const apiFetch = async (url, options = {}) => {
-    const res = await fetch(url, {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const res = await fetch(baseUrl + url, {
       cache: "no-store",
       headers: { "Content-Type": "application/json", ...options.headers },
       ...options
