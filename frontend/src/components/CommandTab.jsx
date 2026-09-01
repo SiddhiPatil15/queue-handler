@@ -6,7 +6,8 @@ export default function CommandTab({
   onExecuteRecommendation,
   history,
   onUploadCsv,
-  onExportCsv
+  onExportCsv,
+  outcomes
 }) {
   const fileInputRef = useRef(null);
 
