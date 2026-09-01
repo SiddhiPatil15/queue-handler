@@ -61,7 +61,23 @@ def get_yolo_model():
 
     try:
         from ultralytics import YOLO
-        model_name = os.environ.get("YOLO_MODEL", "yolov8n.pt")
+        # Build an absolute path so the model is found regardless of
+        # what the working directory is on the hosting server (e.g. Render).
+        # Looks for yolov8n.pt in the same directory as cv_engine.py first,
+        # then falls back to the repo root one level up.
+        this_dir = os.path.dirname(os.path.abspath(__file__))
+        model_env = os.environ.get("YOLO_MODEL", "yolov8n.pt")
+        # Check next to cv_engine.py (backend/yolov8n.pt) first
+        local_path = os.path.join(this_dir, model_env)
+        # Then check repo root (../yolov8n.pt)
+        root_path = os.path.join(this_dir, "..", model_env)
+        if os.path.exists(local_path):
+            model_name = local_path
+        elif os.path.exists(root_path):
+            model_name = root_path
+        else:
+            # Let ultralytics auto-download it
+            model_name = model_env
         _yolo_model = YOLO(model_name)
         _yolo_loaded = True
         _yolo_error = None
