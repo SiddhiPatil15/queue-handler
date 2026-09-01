@@ -143,10 +143,16 @@ export default function Navbar({
           <Camera size={15} /> 4. Computer Vision Studio
         </button>
         <button
+          className={`nav-tab ${activeTab === 'whatif' ? 'active' : ''}`}
+          onClick={() => setActiveTab('whatif')}
+        >
+          <Activity size={15} /> 5. What-If Simulator
+        </button>
+        <button
           className={`nav-tab ${activeTab === 'command' ? 'active' : ''}`}
           onClick={() => setActiveTab('command')}
         >
-          <Sliders size={15} /> 5. Command Center &amp; Data Lab
+          <Sliders size={15} /> 6. Command Center &amp; Data Lab
         </button>
       </nav>
     </header>

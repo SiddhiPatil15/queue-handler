@@ -137,6 +137,8 @@ class QueueSimulator:
         self.is_paused = False
         self.counters = []
         self.action_history = []
+        self.outcome_log = []
+        self.pending_outcomes = []
         self.active_mode = "real_cv"  # "real_cv" | "simulation"
         self.load_preset(facility_key)
 
@@ -182,7 +184,33 @@ class QueueSimulator:
             # Only use the wave generator if the user explicitly switches to 'simulation' (Demo Mode).
             is_demo = self.active_mode == "simulation"
             c.tick(self.sim_minute, self.global_surge, force_wave=is_demo)
+        
         self.sim_minute += 1
+
+        # Evaluate pending outcomes
+        mature_outcomes = [o for o in self.pending_outcomes if self.sim_minute >= o["eval_minute"]]
+        for o in mature_outcomes:
+            c = next((c for c in self.counters if c.id == o["counter_id"]), None)
+            if c:
+                actual_q = round(c.queue_length)
+                expected_q = o["expected_queue"]
+                success = actual_q <= expected_q + max(3, expected_q * 0.1) # Tolerance
+                
+                outcome_record = {
+                    "timestamp": time.strftime("%H:%M:%S"),
+                    "action_name": o["action_name"],
+                    "counter_name": c.name,
+                    "queue_before": o["queue_before"],
+                    "queue_after": actual_q,
+                    "expected_queue": expected_q,
+                    "success": success
+                }
+                self.outcome_log.insert(0, outcome_record)
+                if len(self.outcome_log) > 50:
+                    self.outcome_log.pop()
+        
+        # Remove mature from pending
+        self.pending_outcomes = [o for o in self.pending_outcomes if self.sim_minute < o["eval_minute"]]
 
         if self.global_surge > 0:
             self.global_surge = max(0.0, self.global_surge - 0.2)
@@ -227,6 +255,18 @@ class QueueSimulator:
             )
             return True
         return False
+        
+    def register_action_for_outcome(self, counter_id, action_name, expected_queue_impact, horizon=5):
+        """Registers an action to be evaluated `horizon` minutes later."""
+        c = next((c for c in self.counters if c.id == counter_id), None)
+        if c:
+            self.pending_outcomes.append({
+                "counter_id": counter_id,
+                "action_name": action_name,
+                "eval_minute": self.sim_minute + horizon,
+                "queue_before": round(c.queue_length),
+                "expected_queue": max(0, round(c.queue_length) + expected_queue_impact)
+            })
 
     def inject_surge(self, surge_amount=3.0):
         self.global_surge += surge_amount
@@ -311,6 +351,7 @@ class QueueSimulator:
                     "total_served": round(c.total_served),
                     "last_source": getattr(c, "last_source", "simulation"),
                     "observations_count": len(c.observations_log),
+                    "observations_log": c.observations_log[-5:],
                 }
                 for c in self.counters
             ]

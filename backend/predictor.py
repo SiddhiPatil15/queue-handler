@@ -151,13 +151,15 @@ def predict_counter(counter_snapshot, horizon=20, model_type="linear", total_act
             "slope": 0.0,
             "alert": None,
             "rf_features": None,
-            "intervals": {"5_min": current_waiting, "10_min": current_waiting, "15_min": current_waiting, "20_min": current_waiting}
+            "intervals": {"5_min": current_waiting, "10_min": current_waiting, "15_min": current_waiting, "20_min": current_waiting},
+            "confidence_score": 0,
+            "confidence_label": "UNAVAILABLE"
         }
 
     last_minute = history[-1][0]
     future_minute = last_minute + horizon
 
-    # Run Priyanka's RF Feature model for interval breakdowns
+    # Run Feature model for interval breakdowns
     rf_data = predict_rf_feature_model(counter_snapshot, total_active_counters=total_active_counters)
     interval_map = {10: "10_min", 15: "15_min", 20: "20_min", 5: "5_min"}
     interval_key = interval_map.get(horizon, "20_min")
@@ -203,6 +205,36 @@ def predict_counter(counter_snapshot, horizon=20, model_type="linear", total_act
                 f"and still rising — expect severe delays over next {horizon} mins."
             )
 
+    # Calculate Confidence Score
+    # Base confidence on history length and standard error
+    history_len = len(history)
+    confidence = 0
+    if history_len > 30:
+        confidence = 90
+    elif history_len > 15:
+        confidence = 65
+    elif history_len > 5:
+        confidence = 40
+    else:
+        confidence = 10
+        
+    # Penalty for high variance
+    if std_err > 5.0:
+        confidence -= 20
+    elif std_err > 2.0:
+        confidence -= 10
+        
+    confidence = max(0, min(100, confidence))
+    
+    if confidence >= 80:
+        conf_label = "HIGH"
+    elif confidence >= 50:
+        conf_label = "MEDIUM"
+    elif confidence > 0:
+        conf_label = "LOW"
+    else:
+        conf_label = "UNAVAILABLE"
+
     return {
         "predicted_people": round(predicted),
         "lower_bound": lower_bound,
@@ -211,7 +243,9 @@ def predict_counter(counter_snapshot, horizon=20, model_type="linear", total_act
         "slope": round(slope, 3),
         "alert": alert,
         "rf_features": rf_data["features"],
-        "intervals": rf_data["intervals"]
+        "intervals": rf_data["intervals"],
+        "confidence_score": confidence,
+        "confidence_label": conf_label
     }
 
 

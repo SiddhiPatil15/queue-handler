@@ -42,6 +42,9 @@ from cv_engine import analyze_image_bytes, analyze_video_bytes, analyze_frame_by
 from predictor import predict_all
 from recommender import recommend
 from simulator import QueueSimulator
+from risk_engine import evaluate_all_risks
+from action_simulator import simulate_all_whatifs
+from camera_health import get_all_camera_health
 
 PORT = int(os.environ.get("PORT", 8000))
 HOST = os.environ.get("HOST", "0.0.0.0")
@@ -202,11 +205,10 @@ class APIHandler(BaseHTTPRequestHandler):
                 horizon = int(query.get("horizon", [20])[0])
             except ValueError:
                 horizon = 20
-
             with sim_lock:
                 snapshot = sim.snapshot()
-            predictions = predict_all(snapshot, horizon=horizon, model_type=model_type)
-            self._send_json({"model_type": model_type, "horizon": horizon, "predictions": predictions})
+            preds = predict_all(snapshot, horizon=horizon, model_type=model_type)
+            self._send_json({"predictions": preds})
             return
 
         if path == "/api/recommendation":
@@ -215,12 +217,50 @@ class APIHandler(BaseHTTPRequestHandler):
                 horizon = int(query.get("horizon", [20])[0])
             except ValueError:
                 horizon = 20
-
             with sim_lock:
                 snapshot = sim.snapshot()
-            predictions = predict_all(snapshot, horizon=horizon, model_type=model_type)
-            rec = recommend(snapshot, predictions)
+            preds = predict_all(snapshot, horizon=horizon, model_type=model_type)
+            rec = recommend(snapshot, preds)
             self._send_json(rec)
+            return
+
+        if path == "/api/risk":
+            model_type = query.get("model", ["linear"])[0]
+            try:
+                horizon = int(query.get("horizon", [20])[0])
+            except ValueError:
+                horizon = 20
+            with sim_lock:
+                snapshot = sim.snapshot()
+            preds = predict_all(snapshot, horizon=horizon, model_type=model_type)
+            risks = evaluate_all_risks(snapshot, preds)
+            self._send_json({"risks": risks})
+            return
+
+        if path == "/api/whatif":
+            model_type = query.get("model", ["linear"])[0]
+            try:
+                horizon = int(query.get("horizon", [20])[0])
+            except ValueError:
+                horizon = 20
+            with sim_lock:
+                snapshot = sim.snapshot()
+            preds = predict_all(snapshot, horizon=horizon, model_type=model_type)
+            whatifs = simulate_all_whatifs(snapshot, preds, horizon=horizon)
+            self._send_json({"whatifs": whatifs})
+            return
+            
+        if path == "/api/outcomes":
+            with sim_lock:
+                outcomes = list(sim.outcome_log)
+            self._send_json({"outcomes": outcomes})
+            return
+            
+        if path == "/api/camera/health":
+            with sim_lock:
+                snapshot = sim.snapshot()
+            health = get_all_camera_health(snapshot)
+            self._send_json({"camera_health": health})
             return
 
         if path == "/api/history":
@@ -605,35 +645,63 @@ class APIHandler(BaseHTTPRequestHandler):
             body = self._read_post_json()
             action_type = body.get("action_type")
             payload = body.get("payload", {})
+            success = False
 
             with sim_lock:
-                if action_type == "OPEN_COUNTER":
+                if action_type == "open_counter" or action_type == "OPEN_COUNTER":
                     cid = payload.get("counter_id")
                     if cid:
-                        sim.toggle_counter_active(cid, active_state=True)
+                        if sim.toggle_counter_active(cid, active_state=True):
+                            sim.register_action_for_outcome(cid, "Open Counter", -5, horizon=5)
+                            success = True
                     else:
-                        sim.add_counter(name="Backup Counter (Auto-Opened)", service_rate=5.0)
+                        c = sim.add_counter(name="Backup Counter (Auto-Opened)", service_rate=5.0)
+                        if c:
+                            sim.register_action_for_outcome(c.id, "Open Counter", 0, horizon=5)
+                            success = True
                     sim.log_action("Executed Recommendation: Opened backup counter", "execution")
 
-                elif action_type == "REROUTE":
-                    from_id = payload.get("from_counter_id")
-                    to_id = payload.get("to_counter_id")
+                elif action_type in ("redirect", "preemptive_redirect", "REROUTE"):
+                    from_id = payload.get("from_id") or payload.get("from_counter_id")
+                    to_id = payload.get("to_id") or payload.get("to_counter_id")
                     count = payload.get("count", 5)
-                    sim.redirect_people(from_id, to_id, count=count)
+                    if sim.redirect_people(from_id, to_id, count=count):
+                        sim.register_action_for_outcome(from_id, "Redirect Departures", -count, horizon=5)
+                        sim.register_action_for_outcome(to_id, "Redirect Arrivals", count, horizon=5)
+                        success = True
+
+                elif action_type == "add_counter":
+                    c = sim.add_counter(name=payload.get("name"), service_rate=payload.get("service_rate", 4.5))
+                    if c:
+                        sim.register_action_for_outcome(c.id, "Add New Counter", 0, horizon=5)
+                        success = True
 
                 elif action_type == "ADJUST_RATE":
                     cid = payload.get("counter_id")
                     new_rate = payload.get("new_rate", 5.5)
-                    sim.set_service_rate(cid, new_rate)
+                    if sim.set_service_rate(cid, new_rate):
+                        success = True
 
                 snapshot = sim.snapshot()
 
             self._send_json({
-                "success": True,
+                "success": success,
                 "message": f"Successfully executed action ticket: {action_type}",
                 "snapshot": snapshot
             })
             return
+
+        # POST /api/action/approve
+        if path == "/api/action/approve":
+            body = self._read_post_json()
+            action_type = body.get("action_type")
+            payload = body.get("payload", {})
+            with sim_lock:
+                sim.log_action(f"Human operator approved action: {action_type}", "operator")
+            
+            # Delegate to execute logic
+            self.path = "/api/action/execute"
+            return self.do_POST()
 
         # POST /api/data/upload
         if path == "/api/data/upload":

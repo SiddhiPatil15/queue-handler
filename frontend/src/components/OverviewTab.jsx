@@ -1,6 +1,7 @@
 import React from 'react';
 import { Zap, PlusCircle, Download, CheckCircle2, AlertTriangle, AlertCircle, Users, Clock, Flame, ShieldCheck, TrendingUp, ArrowRight } from 'lucide-react';
 import TrendChart from './TrendChart';
+import RiskPanel from './RiskPanel';
 
 export default function OverviewTab({
   snapshot,
@@ -11,7 +12,9 @@ export default function OverviewTab({
   onInjectSurge,
   onAddLane,
   onExportCsv,
-  onExecuteRecommendation
+  onExecuteRecommendation,
+  risks,
+  cameraHealth
 }) {
   if (!snapshot) return <div className="loading-state">Loading overview metrics...</div>;
 
@@ -88,6 +91,9 @@ export default function OverviewTab({
           <div className="stat-label">Optimal Active Counter Ratio</div>
         </div>
       </div>
+
+      {/* RISK PANEL */}
+      <RiskPanel risks={risks} cameraHealth={cameraHealth} />
 
       {/* THRESHOLD PREDICTION ALERTS — shown when queues are forecast to exceed capacity */}
       {thresholdAlerts.length > 0 && (

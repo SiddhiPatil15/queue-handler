@@ -5,6 +5,7 @@ import CountersTab from './components/CountersTab';
 import PredictorTab from './components/PredictorTab';
 import CommandTab from './components/CommandTab';
 import VisionTab from './components/VisionTab';
+import WhatIfTab from './components/WhatIfTab';
 import { playAlertSound } from './utils/audio';
 
 const POLL_INTERVAL_MS = 3000;
@@ -20,6 +21,10 @@ export default function App() {
   const [predictions, setPredictions] = useState([]);
   const [recommendation, setRecommendation] = useState(null);
   const [history, setHistory] = useState([]);
+  const [risks, setRisks] = useState([]);
+  const [whatifs, setWhatifs] = useState([]);
+  const [outcomes, setOutcomes] = useState([]);
+  const [cameraHealth, setCameraHealth] = useState({});
 
   // Fetch wrapper
   const apiFetch = async (url, options = {}) => {
@@ -39,17 +44,25 @@ export default function App() {
   const refreshDashboard = useCallback(async () => {
     try {
       const params = `?model=${selectedModel}&horizon=${selectedHorizon}`;
-      const [stateRes, predRes, recRes, histRes] = await Promise.all([
+      const [stateRes, predRes, recRes, histRes, riskRes, whatifRes, outcomeRes, healthRes] = await Promise.all([
         apiFetch('/api/state'),
         apiFetch(`/api/prediction${params}`),
         apiFetch(`/api/recommendation${params}`),
         apiFetch('/api/history'),
+        apiFetch(`/api/risk${params}`),
+        apiFetch(`/api/whatif${params}`),
+        apiFetch('/api/outcomes'),
+        apiFetch('/api/camera/health')
       ]);
 
       setSnapshot(stateRes);
       setPredictions(predRes.predictions || []);
       setRecommendation(recRes);
       setHistory(histRes.history || []);
+      setRisks(riskRes.risks || []);
+      setWhatifs(whatifRes.whatifs || []);
+      setOutcomes(outcomeRes.outcomes || []);
+      setCameraHealth(healthRes.camera_health || {});
 
       if (recRes && (recRes.priority === 'critical' || recRes.priority === 'high')) {
         playAlertSound(audioEnabled);
@@ -202,6 +215,8 @@ export default function App() {
           onAddLane={handleAddLane}
           onExportCsv={handleExportCsv}
           onExecuteRecommendation={handleExecuteRecommendation}
+          risks={risks}
+          cameraHealth={cameraHealth}
         />
       )}
 
@@ -233,6 +248,13 @@ export default function App() {
         />
       )}
 
+      {activeTab === 'whatif' && (
+        <WhatIfTab
+          whatifs={whatifs}
+          selectedHorizon={selectedHorizon}
+        />
+      )}
+
       {activeTab === 'command' && (
         <CommandTab
           recommendation={recommendation}
@@ -240,6 +262,7 @@ export default function App() {
           history={history}
           onUploadCsv={handleUploadCsv}
           onExportCsv={handleExportCsv}
+          outcomes={outcomes}
         />
       )}
 
