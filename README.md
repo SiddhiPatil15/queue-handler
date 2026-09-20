@@ -1,4 +1,4 @@
-# 🚀 QueueWatch AI Pro — Real-Time Queue & Crowd Prediction System
+# 🚀 QueueHandler AI Pro — Real-Time Queue & Crowd Prediction System
 
 [![Spiderverse Hackathon](https://img.shields.io/badge/Spiderverse-Hackathon_2026-blue.svg)](https://github.com)
 [![Python 3.10+](https://img.shields.io/badge/Backend-Python_3.10%2B-green.svg)](https://python.org)
