@@ -5,7 +5,7 @@
 [![React 19](https://img.shields.io/badge/Frontend-React_19_%2B_Vite-cyan.svg)](https://reactjs.org)
 [![Computer Vision](https://img.shields.io/badge/AI-YOLOv8_Ultralytics-purple.svg)](https://github.com/ultralytics/ultralytics)
 
-**QueueWatch AI Pro** is a modern, high-performance queue monitoring, real image computer vision detector, multi-factor predictive intelligence dashboard, and automated decision engine built for high-footfall operational environments (Airports, Hospitals, Banks, and Supermarkets).
+**QueueHandler AI Pro** is a modern, high-performance queue monitoring, real image computer vision detector, multi-factor predictive intelligence dashboard, and automated decision engine built for high-footfall operational environments (Airports, Hospitals, Banks, and Supermarkets).
 
 ```
  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
